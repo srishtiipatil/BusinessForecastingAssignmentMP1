@@ -1,0 +1,226 @@
+---
+title: "Assignment MP1"
+author: "Srishti Patil"
+date: "2024-10-15"
+output: html_document
+---
+
+```{r}
+library(readr)
+library(fpp)
+library(fpp2)
+library(forecast)
+```
+
+#Loading dataset 
+```{r}
+flightVolume <- read_csv("C:/Users/Srishti/Desktop/FALL24/BF/Tests/flightVolume.csv")
+head(flightVolume)
+```
+1. Create Timeseries
+
+```{r}
+timeSeriesData <- ts(flightVolume$reslong, start=c(1976, 1), frequency=12)
+plot(timeSeriesData)
+```
+
+2. Verify how much history to include in your analysis. 
+
+There have been a structural shift in the nature of the data around 1985, making the older data less comparable or inconsistent with the newer data.Hence, we include data starting from January 1985
+
+```{r}
+timeSeriesDataWindow <- window(timeSeriesData, start = c(1985, 1))
+plot(timeSeriesDataWindow)
+
+```
+
+
+
+3. Hypothesize if the dataset has trend, seasonality, or both. 
+We can see there is an upward trend in the data, particularly visible from the late 1990s through the mid-2000s. This suggests that the underlying level of the time series is increasing over time.
+The recurring spikes in the data at regular intervals indicates seasonality. These peaks appear to happen consistently, suggesting a repetitive pattern, possibly yearly or within a specific time period.
+Hence, the dataset seems to show both seasonality—regular periodic fluctuations—and trend, or an increasing movement over time. 
+
+
+4. Verify using Acf
+```{r}
+Acf(timeSeriesDataWindow)
+```
+We can say that the dataset indicates tred when the autocorrelations decay slowly over many lags. 
+This ACF plot shows the gradual decrease of autocorrelations but still stays positive for several lags.
+Hence, the ACF plot verifies the Trend nature of the data.
+
+We can say the plot is seasonal when the spkies are repeating at regular intervals.
+In the above ACF plot the spikes lags around 12 and 24 which makes it a recuring pattern suggesting an annual pattern.
+Hence, suggesting the seasonality of the plot.
+
+
+5. Verify using decomposition
+```{r}
+decomposed_data <- decompose(timeSeriesDataWindow)
+plot(decomposed_data)
+```
+
+The trend line in this plot clearly shows an upward movement, especially from the late 1980s to about 2005. The tendency levels out and somewhat declines after 2005.
+Because it shows a long-term increase in the data followed by stabilization, this validates the existence of a trend.
+
+The seasonal component exhibits cycles that repeat at regular intervals and are recognizable by frequent, strong peaks and troughs. Throughout the whole time span, this regular pattern is present at every time point. Hence, indicating seasonality.
+
+
+6. Chose an accuracy measure
+7. Create a forecast model for the next 12 months. Include Naive, Average, Exponential Smoothing, HoltWinters, and Decomposition (both types). 
+
+```{r}
+# Naive forecast
+naive_forecast <- naive(timeSeriesDataWindow, h=12)
+plot(naive_forecast)
+
+# Mean/average method
+mean_forecast <- meanf(timeSeriesDataWindow, h=12)
+plot(mean_forecast)
+
+# Exponential Smoothing
+ses_forecast <- ses(timeSeriesDataWindow, h=12)
+plot(ses_forecast)
+
+
+# Holt-Winters forecast
+hw_forecast <- HoltWinters(timeSeriesDataWindow)
+hw_forecast_future <- forecast(hw_forecast, h=12)
+plot(hw_forecast_future)
+
+# Moving Averages
+MA5_forecast <- ma(timeSeriesDataWindow,order=12)
+print(MA5_forecast)
+plot(MA5_forecast)
+
+
+
+# decomposition
+decomp_add <- decompose(timeSeriesDataWindow, type="additive")
+decomp_mult <- decompose(timeSeriesDataWindow, type="multiplicative")
+
+# Decomposition Forecasts using trend component
+decomp_add_forecast <- forecast(decomp_add$trend, h=12)
+decomp_mult_forecast <- forecast(decomp_mult$trend, h=12)
+
+plot(decomp_add_forecast)
+plot(decomp_mult_forecast)
+
+
+
+mean_accuracy <- accuracy(mean_forecast)
+naive_accuracy <- accuracy(naive_forecast)
+ses_accuracy <- accuracy(ses_forecast)
+hw_accuracy <- accuracy(hw_forecast_future)
+decomp_add_accuracy <- accuracy(decomp_add_forecast)
+decomp_mult_accuracy <- accuracy(decomp_mult_forecast)
+
+
+
+plot(naive_forecast, main="Comparison of Forecast Methods", col="red")
+lines(mean_forecast$mean, col="blue")
+lines(ses_forecast$mean, col="green")
+lines(hw_forecast_future$mean, col="purple")
+lines(decomp_add_forecast$mean, col="yellow")
+lines(decomp_mult_forecast$mean, col="pink")
+
+```
+Due to the trend and seasonality available in the data, MAE and MAPE would generally provide a more stable metric for accuracy. Unlike RMSE, MAE does not penalize larger errors and provides a balanced view of average error. For forecast errors in percentage terms relative to the actual values, MAPE is best forecasting technique. 
+
+
+8. Show model rank with accuracy measures
+Based on the provided accuracy measures for each model, we can rank them using the key metrics: **RMSE**, **MAE**, **MAPE**, and **MASE**. Lower values indicate better model performance.
+
+Final Ranking of Models Based on Accuracy:
+1. Decomposition (Additive and Multiplicative)
+   - RMSE = 0.02602574
+   - AE = 0.01839524
+   - MAPE = 0.2812836
+   - MASE = 0.04708357
+
+2. Holt-Winters (Second-best in all metrics)
+   - RMSE = 0.4323398
+   - MAE= 0.3128078
+   - MAPE = 4.718837
+   - MASE = 0.5971484
+
+3. **Exponential Smoothing (SES) (Decent performance, but not as good as Decomposition or Holt-Winters)
+   -RMSE = 1.634225
+   - MAE = 1.102108
+   - MAPE = 16.39091
+   - MASE = 2.103918
+
+4. Naive Forecast (Performs worse than SES)
+   - RMSE = 2.085563
+   - MAE = 1.393393
+   - MAPE = 20.37325
+   - MASE = 2.65998
+
+5. Mean Forecast(Worst performance overall)
+   - RMSE= 2.062105
+   - MAE = 1.542673
+   - MAPE = 25.27119
+   - MASE = 2.944953
+
+
+Hence, The Decomposition (Additive and Multiplicative) models rank the highest and provide the best forecast accuracy based on the given metrics. These models are likely the best choice for forecasting the next 12 months.
+
+```{r}
+accuracy_df <- data.frame(
+  Model = c( "Additive Decomposition", "Multiplicative Decomposition","Holt-Winters", "Naive", "Mean", "Exponential Smoothing"),
+ME= c( decomp_add_accuracy[1], decomp_mult_accuracy[1],hw_accuracy[1], naive_accuracy[1], mean_accuracy[1],ses_accuracy[1]),
+  RMSE = c( decomp_add_accuracy[2], decomp_mult_accuracy[2],hw_accuracy[2], naive_accuracy[2], mean_accuracy[2],ses_accuracy[2]),
+  MAE = c( decomp_add_accuracy[3], decomp_mult_accuracy[3],hw_accuracy[3], naive_accuracy[3], mean_accuracy[3],ses_accuracy[3]),
+  MPE = c( decomp_add_accuracy[4], decomp_mult_accuracy[4],hw_accuracy[4], naive_accuracy[4], mean_accuracy[4],ses_accuracy[4]),
+  MAPE = c( decomp_add_accuracy[5], decomp_mult_accuracy[5],hw_accuracy[5], naive_accuracy[5], mean_accuracy[5],ses_accuracy[5]),
+  MASE = c( decomp_add_accuracy[6], decomp_mult_accuracy[6],hw_accuracy[6], naive_accuracy[6], mean_accuracy[6],ses_accuracy[6]),
+  ACF1 = c( decomp_add_accuracy[7], decomp_mult_accuracy[7],hw_accuracy[7], naive_accuracy[7], mean_accuracy[7],ses_accuracy[7])
+)
+
+print(accuracy_df)
+
+
+```
+Given the ranking of models based on accuracy metrics (RMSE, MAE, MAPE, and MASE), I would choose Decomposition(Additive and Multiplicative) or Holt - Winters models for forecasting the next 12 months:
+
+###Chosen Models for Forecasting:
+Reason:
+1.Decomposition (Additive and Multiplicative):
+This model performed the best across all key accuracy measures (RMSE, MAE, MAPE, and MASE). The decomposition models capture both the trend and seasonality effectively, which is crucial when your data exhibits these patterns. Since the dataset has both trend and seasonality, using decomposition is ideal. As it will split the data into the trend, seasonality, and residuals, allowing us to forecast each component separately and combine them to get a more accurate overall forecast.
+
+2.Holt-Winters:
+This model is also gives good accuracy. It is specifically designed for handling time series data with both trend and seasonality. The Holt-Winters model smooths out the data while accounting for both seasonal variations and any upward or downward trends. This model can directly forecast the future values by taking into account the level, trend, and seasonality in the data. Since it performed well in accuracy measures, it can be used as an alternative or to cross-check forecasts from the decomposition model.
+
+### How I’m Going to Use These Models for Forecasting:
+
+1. Decomposition Model:
+   - First, decompose the historical time series data into its trend, seasonal, and residual components.
+   - Forecast each component separately for the next 12 months.
+   - Combine the forecasted trend, seasonality, and residual components to generate the final forecast for the next 12 months.
+
+2. Holt-Winters Model:
+   - Use the Holt-Winters additive or multiplicative method (depending on the data characteristics) to forecast the next 12 months.
+   - Since Holt-Winters automatically handles trend and seasonality, the next 12 months' forecast will be derived from the underlying data patterns.
+
+
+#10. Provide the forecast for the next 12 months (point and range) and explain why you feel confident with these forecasts
+```{r}
+# Additive decomposition using STL
+decomp_add <- stl(timeSeriesDataWindow, s.window = "periodic")
+decomp_add_forecast <- forecast(decomp_add, h = 12)
+print(decomp_add_forecast)
+plot(decomp_add_forecast)
+
+
+# Multiplicative decomposition using STL
+log_flight_ts <- log(timeSeriesDataWindow)
+decomp_mult <- stl(log_flight_ts, s.window = "periodic")
+decomp_mult_forecast <- forecast(decomp_mult, h = 12)
+decomp_mult_forecast$mean <- exp(decomp_mult_forecast$mean)
+print(decomp_mult_forecast)
+plot(decomp_mult_forecast)
+
+
+```
+
